@@ -1,0 +1,32 @@
+<main>
+    <h2>Numbers</h2>
+    {{#if phones.length}}
+    <ul>
+        {{#each phones}}
+        <li class="phone">
+            <form action="/complete" method="POST">
+                <label>
+                    {{#if active}}
+                    <input type="checkbox" checked name="active">
+                    <span>{{number}}</span>
+                    {{else}}
+                    <input type="checkbox" name="active">
+                    <span class="completed">{{number}}</span>
+                    {{/if}}
+
+                    <input type="hidden" value="{{_id}}" name="id">
+
+                    {{#if confitmed}}
+                    <button class="btn btn-small" type="submit">Toggle</button>
+                    {{else}}
+                    <button class="btn btn-small" type="submit">Register</button>
+                    {{/if}}
+                </label>
+            </form>
+        </li>
+        {{/each}}
+    </ul>
+    {{else}}
+    <p>No numbers!</p>
+    {{/if}}
+</main>

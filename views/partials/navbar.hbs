@@ -1,0 +1,20 @@
+<nav class="blue darken-4">
+    <div class="nav-wrapper">
+        <a href="/" class="brand-logo">Melodistration 2.3</a>
+        <ul id="nav-mobile" class="right hide-on-med-and-down">
+
+            {{#if isIndex}}
+            <li class="active"><a href="/">Numbers</a></li>
+            {{else}}
+            <li><a href="/">Numbers</a></li>
+            {{/if}}
+
+            {{#if isCreate}}
+            <li class="active"><a href="/create">Add</a></li>
+            {{else}}
+            <li><a href="/create">Add</a></li>
+            {{/if}}
+
+        </ul>
+    </div>
+</nav>

@@ -1,0 +1,21 @@
+.phone {
+    margin-bottom: 1rem;
+}
+
+.phone span.completed {
+    text-decoration: line-through;
+}
+
+.phone label {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    background: #f3f3f3;
+    padding: 1rem;
+}
+
+.phone i {
+    z-index: 2;
+}
