@@ -1,8 +1,8 @@
-const { url } = require('./network')
+const { config } = require('./utils')
 
-const sid = 'number sid'
-const token = 'twilli token'
-const fox = 'twillio song'
+const sid = config().sid
+const token = config().token
+const fox = config().song
 
 const createResponse = (song) => {
     const VoiceResponse = require('twilio').twiml.VoiceResponse
@@ -22,9 +22,9 @@ const call = async (number, song = fox) => {
     return client.calls
         .create({
             statusCallbackEvent: ['ringing', 'answered', 'completed'],
-            statusCallback: `${url}/emitter`,
+            statusCallback: `${config().url}/emitter`,
             twiml: response.toString(),
-            from: 'number',
+            from: config().from,
             to: number
         })
 }

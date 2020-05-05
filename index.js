@@ -3,8 +3,7 @@ const mongoose = require('mongoose')
 const path = require('path')
 const exphbs = require('express-handlebars')
 const phoneRoutes = require('./routes/phones')
-var os = require('os');
-
+const { config } = require('./helpers/utils')
 //const HOST = os.networkInterfaces()['Беспроводная сеть'][1].address;
 const PORT = 3000 //process.env.PORT || 3000
 
@@ -25,7 +24,7 @@ app.use(phoneRoutes)
 async function start() {
     try {
         await mongoose.connect(
-            '', {
+            config().mongodb, {
             useNewUrlParser: true,
             useFindAndModify: false,
             useUnifiedTopology: true

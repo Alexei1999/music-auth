@@ -1,7 +1,6 @@
 const { Router } = require('express')
 const Phone = require('../models/Phone')
 const { call } = require('../helpers/caller')
-const { url } = require('../helpers/network')
 const { validationNumber, emitter } = require('../helpers/utils')
 
 const router = Router()
@@ -21,10 +20,6 @@ router.get('/create', (req, res) => {
         title: 'Create number',
         isCreate: true
     })
-})
-
-router.get('/test', (req, res) => {
-    res.send('shopa!!!!')
 })
 
 router.post('/create', async (req, res) => {
@@ -56,14 +51,25 @@ router.post('/complete', async (req, res) => {
 })
 
 router.post('/emitter', async (req, res) => {
+    console.log(req.body)
     let status = req.body.CallStatus
-    emitter.emit(status)
+    let caller = req.body.Caller
+
+    emitter.emit('status', status, caller)
     res.status(204).send()
 })
 
 router.get('/emitter', async (req, res) => {
-    console.log('emitter get')
-    res.status(204).send();
+    let id = 0
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache'
+    })
+
+    emitter.on('status', (status, caller) => {
+        res.write(`event: ${status}\ndata: ${caller}\nid: ${id++}\n\n`)
+    })
 })
 
 router.get('/registration', async (req, res) => {
@@ -73,13 +79,12 @@ router.get('/registration', async (req, res) => {
         res.redirect('/')
         return
     }
-    let sid = '555'// await call(phone.number).then(res => res.sid)
+    let sid = await call(phone.number).then(res => res.sid)
 
     res.render('registration', {
         title: 'registration',
         number: phone.number,
         sid: sid,
-        status: 'hueva',
     })
 })
 
