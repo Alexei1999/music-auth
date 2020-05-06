@@ -5,6 +5,8 @@ const { Router } = require('express')
 const { call } = require('../helpers/caller')
 const { validationNumber, emitter, config } = require('../helpers/utils')
 const Phone = require('../models/Phone')
+const Registration = require('../models/Registration')
+const Song = require('../models/Song')
 const path = require('path')
 const fs = require('fs')
 
@@ -88,7 +90,7 @@ router.get('/registration', async (req, res) => {
         res.redirect('/?error=PDONCONFIRMED')
         return
     }
-    //call(phone.number)
+    //call(phone.number, song)
 
     res.render('registration', {
         title: 'registration',
@@ -96,8 +98,37 @@ router.get('/registration', async (req, res) => {
     })
 })
 
-router.get('/verification', (req, res) => {
 
+router.get('/verification', async (req, res) => {
+    let reg = req.body.regId
+
+    if (reg) {
+        reg = Registration.findById(reg)
+        res.send({
+            confirmed: reg.confirmed,
+            pending: reg.pending,
+            error: reg.error
+        })
+        return
+    }
+
+    if (req.body.userId)
+        return
+
+    const userId = req.body.userId
+
+    let n = Song.count(query);
+    let r = Math.floor(Math.random() * n);
+    const song = Song.find({}).limit(1).skip(r)
+
+    reg = new Registration({
+        userId: userId,
+        songId: song._id,
+        pending: true
+    })
+    reg.save()
+
+    res.send(song._id)
 })
 
 router.post('/verification', upload.single('file'), async (req, res) => {
@@ -110,8 +141,6 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     fd.append('file', fs.createReadStream(Path))
     fd.append('return', 'timecode,apple_music,deezer,spotify')
     fd.append('api_token', config().audD)
-
-
 
     let audio = await got('https://api.audd.io/',
         {
