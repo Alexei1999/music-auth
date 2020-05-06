@@ -1,8 +1,14 @@
+const multer = require('multer')
+const got = require('got');
+const FormData = require('form-data')
 const { Router } = require('express')
-const Phone = require('../models/Phone')
 const { call } = require('../helpers/caller')
-const { validationNumber, emitter } = require('../helpers/utils')
+const { validationNumber, emitter, config } = require('../helpers/utils')
+const Phone = require('../models/Phone')
+const path = require('path')
+const fs = require('fs')
 
+const upload = multer({ dest: path.resolve(__dirname, '../public/uplods/') })
 const router = Router()
 
 router.get('/', async (req, res) => {
@@ -29,7 +35,7 @@ router.post('/create', async (req, res) => {
     //     res.redirect('/create')
 
     const phone = new Phone({
-        number: req.body.title,
+        number: number,
         active: true
     })
 
@@ -41,7 +47,7 @@ router.post('/complete', async (req, res) => {
     const phone = await Phone.findById(req.body.id)
 
     if (!phone.confirmed) {
-        res.redirect('/registration/?id=' + req.body.id)
+        res.redirect('/registration/?number=' + phone.number)
         return
     }
 
@@ -51,11 +57,10 @@ router.post('/complete', async (req, res) => {
 })
 
 router.post('/emitter', async (req, res) => {
-    console.log(req.body)
     let status = req.body.CallStatus
-    let caller = req.body.Caller
+    let called = req.body.Called
 
-    emitter.emit('status', status, caller)
+    emitter.emit('status', status, called)
     res.status(204).send()
 })
 
@@ -64,28 +69,61 @@ router.get('/emitter', async (req, res) => {
 
     res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache',
     })
 
-    emitter.on('status', (status, caller) => {
-        res.write(`event: ${status}\ndata: ${caller}\nid: ${id++}\n\n`)
-    })
+    setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
+    setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
+    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 10000)
+
+    // emitter.on('status', (status, called) => {
+    //     res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
+    // })
 })
 
 router.get('/registration', async (req, res) => {
-    const phone = await Phone.findById(req.query.id)
+    const phone = await Phone.find({ number: req.query.number })
 
     if (!phone) {
-        res.redirect('/')
+        res.redirect('/?error=PDONCONFIRMED')
         return
     }
-    let sid = await call(phone.number).then(res => res.sid)
+    //call(phone.number)
 
     res.render('registration', {
         title: 'registration',
-        number: phone.number,
-        sid: sid,
+        number: phone.number
     })
+})
+
+router.get('/verification', (req, res) => {
+
+})
+
+router.post('/verification', upload.single('file'), async (req, res) => {
+    let number = req.body.number
+    let Path = req.file.path
+    console.log(number)
+    console.log(Path)
+
+    var fd = new FormData()
+    fd.append('file', fs.createReadStream(Path))
+    fd.append('return', 'timecode,apple_music,deezer,spotify')
+    fd.append('api_token', config().audD)
+
+
+
+    let audio = await got('https://api.audd.io/',
+        {
+            method: 'post',
+            body: fd
+        }
+    ).then(raw => JSON.stringify(raw.body))
+
+    fs.unlink(Path)
+    console.log(audio)
+
+    res.sendStatus(204);
 })
 
 module.exports = router

@@ -3,7 +3,9 @@ const mongoose = require('mongoose')
 const path = require('path')
 const exphbs = require('express-handlebars')
 const phoneRoutes = require('./routes/phones')
+const ngrok = require('ngrok')
 const { config } = require('./helpers/utils')
+
 //const HOST = os.networkInterfaces()['Беспроводная сеть'][1].address;
 const PORT = 3000 //process.env.PORT || 3000
 
@@ -32,6 +34,9 @@ async function start() {
         app.listen(PORT, () => {
             console.log('server starts listening on ', PORT)//`${HOST}:${PORT}`)
         })
+        const url = 'http://a4a0d1bf.ngrok.io' //= await ngrok.connect(PORT)
+        console.log('public url: ', url)
+        config(url)
     } catch (e) {
         console.log(e)
     }

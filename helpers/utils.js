@@ -1,5 +1,5 @@
 const emitter = new (require('events'))()
-const path = require('path')
+const Path = require('path')
 const fs = require('fs')
 let keys = undefined
 
@@ -7,12 +7,15 @@ validationNumber = (number) => {
 
 }
 
-config = () => {
+
+config = (url = undefined) => {
+    let path = Path.resolve(__dirname, '../config.json')
     if (!keys) {
-        let data = fs.readFileSync(path.resolve(__dirname, '../config.json'), 'utf8')
+        let data = fs.readFileSync(path, 'utf8')
         keys = JSON.parse(data)
     }
+    if (url)
+        keys.url = url;
     return keys
 }
-
 module.exports = { config, validationNumber, emitter }

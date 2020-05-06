@@ -1,45 +1,62 @@
-let eventSource = new EventSource('http://localhost:3000/emitter')
+let url = 'http://localhost:3000'//window.location.host
+let eventSource = new EventSource(`${url}/emitter`)
 
-// navigator.mediaDevices.getUserMedia({ audio: true })
-//     .then(stream => {
-//         const mediaRecorder = new MediaRecorder(stream);
-//         mediaRecorder.start();
-
-//         const audioChunks = [];
-//         mediaRecorder.addEventListener("dataavailable", event => {
-//             audioChunks.push(event.data);
-//         });
-
-//         mediaRecorder.addEventListener("stop", () => {
-//             const audioBlob = new Blob(audioChunks);
-//             const audioUrl = URL.createObjectURL(audioBlob);
-//             audio.play();
-//         });
-
-//         setTimeout(() => {
-//             mediaRecorder.stop();
-//         }, 3000);
-//     });
+let getStream
+let mediaRecorder
 
 eventSource.addEventListener('ringing', () => {
-    console.log('attention to micro')
+    getStream = navigator.mediaDevices.getUserMedia({ audio: true })
+        .catch(e => console.log('Дайте микрофон бля'))
 })
 
-eventSource.addEventListener('in-progress', () => {
-    console.log('run micro')
-})
+eventSource.addEventListener('in-progress', source => {
+    getStream.then(stream => {
+        const audioChunks = [];
 
-eventSource.addEventListener('busy', () => {
-    console.log('registration redirect')
+        mediaRecorder = new MediaRecorder(stream)
+        console.log('start')
+        mediaRecorder.start()
+
+        mediaRecorder.addEventListener("dataavailable", event => {
+            audioChunks.push(event.data)
+        })
+
+        mediaRecorder.addEventListener("stop", async () => {
+            stream.getTracks().forEach(track => {
+                track.stop()
+            })
+            const audioBlob = new Blob(audioChunks)
+
+            var fd = new FormData()
+            fd.append('file', audioBlob, 'audio.wav')
+            fd.append('number', source.data)
+
+            fetch(`${url}/verification`,
+                {
+                    method: 'post',
+                    body: fd
+                }
+            )
+            eventSource.close()
+            window.location.replace(url)
+        })
+    })
 })
 
 eventSource.addEventListener('completed', () => {
-    console.log('go to home')
+    mediaRecorder.stop()
+})
+
+eventSource.addEventListener('busy', () => {
+    console.log('busy')
 })
 
 eventSource.addEventListener('failed', () => {
-    console.log('wtf')
+    console.log('failed')
 })
+
+
+// close()
 
 // good                     good
 // attention to micro       ringing
