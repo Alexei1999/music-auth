@@ -34,7 +34,7 @@ async function start() {
         app.listen(PORT, () => {
             console.log('server starts listening on ', PORT)//`${HOST}:${PORT}`)
         })
-        const url = 'http://a4a0d1bf.ngrok.io' //= await ngrok.connect(PORT)
+        const url = 'http://3c3d4b79.ngrok.io' //= await ngrok.connect(PORT)
         console.log('public url: ', url)
         config(url)
     } catch (e) {

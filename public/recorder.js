@@ -14,8 +14,8 @@ eventSource.addEventListener('in-progress', source => {
         const audioChunks = [];
 
         mediaRecorder = new MediaRecorder(stream)
-        console.log('start')
         mediaRecorder.start()
+        setTimeout(() => { console.log('start'); mediaRecorder.start(); }, 5000)
 
         mediaRecorder.addEventListener("dataavailable", event => {
             audioChunks.push(event.data)
@@ -44,7 +44,10 @@ eventSource.addEventListener('in-progress', source => {
 })
 
 eventSource.addEventListener('completed', () => {
-    mediaRecorder.stop()
+    console.log('stop recording')
+    console.log(mediaRecorder.state)
+    if (mediaRecorder.state == "recording")
+        mediaRecorder.stop()
 })
 
 eventSource.addEventListener('busy', () => {

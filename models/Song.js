@@ -8,6 +8,14 @@ const schema = new Schema({
     url: {
         type: String,
         required: true
+    },
+    title: {
+        type: String,
+        required: true
+    },
+    artist: {
+        type: String,
+        required: true
     }
 })
 

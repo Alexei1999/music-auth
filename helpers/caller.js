@@ -2,7 +2,6 @@ const { config } = require('./utils')
 
 const sid = config().sid
 const token = config().token
-const fox = config().song
 
 const createResponse = (song) => {
     const VoiceResponse = require('twilio').twiml.VoiceResponse
@@ -15,7 +14,7 @@ const createResponse = (song) => {
     return response
 }
 
-const call = async (number, song = fox) => {
+const call = async (number, song) => {
     const client = require('twilio')(sid, token);
     const response = createResponse(song)
 

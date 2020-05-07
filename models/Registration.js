@@ -9,6 +9,10 @@ const schema = new Schema({
         type: String,
         required: true
     },
+    date: {
+        type: String,
+        required: true
+    },
     confirmed: {
         type: Boolean,
         default: false
@@ -20,7 +24,7 @@ const schema = new Schema({
     error: {
         type: Boolean,
         default: false
-    }
+    },
 })
 
 module.exports = model('registration', schema)
