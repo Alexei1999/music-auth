@@ -9,9 +9,8 @@ const schema = new Schema({
         type: Boolean,
         default: false
     },
-    confirmed: {
-        type: Boolean,
-        default: false
+    regist: {
+        type: String
     }
 })
 

@@ -1,8 +1,8 @@
 <main>
     <h2>Numbers</h2>
-    {{#if phones.length}}
+    {{#if buttons.length}}
     <ul>
-        {{#each phones}}
+        {{#each buttons}}
         <li class="phone">
             <form action="/complete" method="POST">
                 <label>
@@ -16,11 +16,16 @@
 
                     <input type="hidden" value="{{number}}" name="number">
 
-                    {{#if confitmed}}
-                    <button class="btn btn-small" type="submit">Toggle</button>
+                    {{#if confirmed}}
+                    <button class="btn btn-small" type="submit">Set</button>
+                    {{else if pending}}
+                    <button class="btn btn-small disabled" type="submit">Pending</button>
+                    {{else if error}}
+                    <button class="btn btn-small #ef5350 red lighten-1" type="submit">Error</button>
                     {{else}}
                     <button class="btn btn-small" type="submit">Register</button>
                     {{/if}}
+
                 </label>
             </form>
         </li>

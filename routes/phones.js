@@ -3,7 +3,7 @@ const got = require('got');
 const FormData = require('form-data')
 const { Router } = require('express')
 const { call } = require('../helpers/caller')
-const { validationNumber, emitter, config, comparer } = require('../helpers/utils')
+const { emitter, config, comparer } = require('../helpers/utils')
 const Phone = require('../models/Phone')
 const Registration = require('../models/Registration')
 const Song = require('../models/Song')
@@ -14,14 +14,246 @@ const upload = multer({ dest: path.resolve(__dirname, '../public/uplods/') })
 const router = Router()
 
 router.get('/', async (req, res) => {
+    console.log('main')
     const phones = await Phone.find({}).lean()
+    const registrations = {};
+
+    (await Registration.find({}))
+        .forEach(reg => registrations[reg.userId] = reg)
+
+    const buttons = phones.map(phn => {
+        let tar = registrations[phn._id]
+        let res = {
+            number: phn.number,
+            active: phn.active,
+            pending: tar ? tar.pending : false,
+            error: tar ? tar.error : false,
+            confirmed: tar ? tar.confirmed : false
+        }
+        if (tar && tar.error) {
+            Registration
+                .findById(phn.registr)
+                .setOptions({ error: false })
+                .save()
+        }
+        return res
+    })
 
     res.render('index', {
         title: 'Numbers list',
         isIndex: true,
-        phones
+        buttons
     })
 })
+
+router.get('/create', (req, res) => {
+    res.render('create', {
+        title: 'Create number',
+        isCreate: true
+    })
+})
+
+router.post('/create', async (req, res) => {
+    const number = req.body.title
+
+    if (!number.match(/^\+\d*$/))
+        return res.redirect('/create/?error=WRNUMBER')
+
+    const phone = new Phone({
+        number: number,
+        active: true
+    })
+
+    await phone.save()
+    res.redirect('/')
+})
+
+router.post('/complete', async (req, res) => {
+    console.log('complete')
+    let phone
+    try {
+        phone = await Phone.findOne({ number: req.body.number })
+    } catch (e) {
+        return res.redirect('/?error=WRNUMBER')
+    }
+
+    if (!phone.confirmed)
+        return res.redirect('/registration/?number=' + phone.number)
+
+    phone.active = !!req.body.active
+    await phone.save()
+    res.redirect('/')
+})
+
+router.post('/emitter', async (req, res) => {
+    let status = req.body.CallStatus
+    let called = req.body.Called
+
+    emitter.emit('status', status, called)
+    res.status(204).send()
+})
+
+router.get('/emitter', async (req, res) => {
+    let id = 0
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+    })
+
+    setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
+    setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
+    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 10000)
+
+    // emitter.on('status', (status, called) => {
+    //     res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
+    // })
+})
+
+router.get('/registration', async (req, res) => {
+    console.log('registration')
+    let phone
+    try {
+        phone = await Phone.findOne({ number: `+${req.query.number.slice(1)}` })
+    } catch (e) {
+        return res.redirect('/?error=WRNUMBER')
+    }
+
+    let data
+    try {
+        data = await got(`${config().url}/verification/?userId=${phone._id}`)
+            .then(data => JSON.parse(data.body))
+    } catch (e) {
+        return res.redirect('/?error=SRDONAVALIBLE')
+    }
+    console.log(data)
+    const song = await Song.findById(data.songId)
+    //call(phone.number, song.url)
+
+    res.render('registration', {
+        title: 'registration',
+        number: phone.number
+    })
+})
+
+
+router.get('/verification', async (req, res) => {
+    console.log('verification')
+    let user = await Phone.findById(req.query.userId)
+
+    try {
+        Registration.findByIdAndRemove(user.registr)
+    } catch (e) {
+        emitter.emit('error', {
+            name: 'WRID',
+        })
+        return res.sendStatus(204)
+    }
+    let n = Song.count({})
+    let r = Math.floor(Math.random() * n)
+    const song = await Song.find({}).limit(1).skip(r).then(data => data.pop())
+
+    let reg = new Registration({
+        userId: user._id,
+        songId: song._id,
+        date: Date.now(),
+        pending: true
+    })
+    await reg.save()
+    user.registr = reg._id
+    await user.save()
+    res.send(JSON.stringify({ songId: song._id }))
+})
+
+router.post('/audd', (req, res) => {
+    res.send(JSON.stringify({
+        status: 'success',
+        result: {
+            artist: 'Ylvis',
+            title: 'The Fox (What Does The Fox Say?)',
+            album: 'The Fox (What Does The Fox Say?)',
+            release_date: '2013-09-02',
+            label: 'WM Norway',
+            timecode: '00:13'
+        }
+    }))
+})
+
+let abort = async (id, error) => {
+    console.log('aborted --> ', error)
+    await Registration
+        .findById(id)
+        .setOptions({ pending: false, error: true })
+        .save()
+    emitter.emit('error', error)
+}
+
+router.post('/verification', upload.single('file'), async (req, res) => {
+    console.log('verification2')
+    console.log('at verification')
+    let phone = await Phone.findOne({ number: req.body.number })
+    let reg = await Registration.findById(phone.registr)
+    let Path = req.file.path
+    console.log('number --> ', phone.number)
+
+    var fd = new FormData()
+    try {
+        fd.append('file', fs.createReadStream(Path))
+        fd.append('return', 'timecode')
+        fd.append('api_token', config().audD)
+    } catch (e) {
+        await abort(reg._id, 'FSDONAVALIBLE')
+        return res.sendStatus(204)
+    }
+
+    let audio, song
+    try {
+        let reqAud = got(`${config().url}/audd`,//'https://api.audd.io/',
+            {
+                method: 'post',
+                body: fd
+            }
+        ).then(raw => {
+            fs.unlink(Path, (err) => console.log(err))
+            return JSON.parse(raw.body)
+        })
+        let reqSong = got(`${config().url}/verification/?userId=${phone._id}`).then(raw => JSON.parse(raw.body));
+        [audio, sng] = await Promise.all([reqAud, reqSong]);
+        song = Song.findById(sng.songId);
+    } catch (e) {
+        await abort(reg._id, 'WRREQUEST')
+        return res.sendStatus(204)
+    }
+
+    reg.pending = false
+    await reg.save()
+    emitter.emit('change')
+
+    if (audio.status != 'success' || audio.result == null) {
+        console.log('stop')
+        reg.error = true
+        reg.save()
+        emitter.emit('change')
+        return res.redirect('/?error=REGFAILED')
+    }
+    else audio = audio.result
+
+    if (comparer(audio, song)) {
+        console.log('true')
+        reg.confirmed = true
+    }
+    else {
+        console.log('false')
+        reg.error = true
+    }
+
+    await reg.save()
+    emitter.emit('change')
+
+    res.sendStatus(204)
+})
+
+module.exports = router
 
 // router.get('/addsong', async () => {
 //     let fox = new Song({
@@ -49,192 +281,3 @@ router.get('/', async (req, res) => {
 //     p21.save()
 
 // })
-
-router.get('/create', (req, res) => {
-    res.render('create', {
-        title: 'Create number',
-        isCreate: true
-    })
-})
-
-router.post('/create', async (req, res) => {
-    const number = req.body.title
-
-    // if (!validationNumber(number))//todo validationNumber
-    //     res.redirect('/create')
-
-    const phone = new Phone({
-        number: number,
-        active: true
-    })
-
-    await phone.save()
-    res.redirect('/')
-})
-
-router.post('/complete', async (req, res) => {
-    const phone = (await Phone.find({ number: req.body.number })).pop()
-    console.log('at complete')
-    console.log('phone find - ', phone)
-    console.log('\n\n')
-    if (!phone.confirmed) {
-        res.redirect('/registration/?number=' + phone.number)
-        return
-    }
-
-    phone.active = !!req.body.active
-    await phone.save()
-    res.redirect('/')
-})
-
-router.post('/emitter', async (req, res) => {
-    let status = req.body.CallStatus
-    let called = req.body.Called
-
-    emitter.emit('status', status, called)
-    res.status(204).send()
-})
-
-router.get('/emitter', async (req, res) => {
-    let id = 0
-
-    res.writeHead(200, {
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache',
-    })
-
-    // setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
-    // setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
-    // setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 10000)
-
-    emitter.on('status', (status, called) => {
-        res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
-    })
-})
-
-router.get('/registration', async (req, res) => {
-    console.log('at registration')
-    console.log('query --> ', req.query)
-    const phone = (await Phone.find({ number: `+${req.query.number.slice(1)}` })).pop()
-    console.log('phone --> ', phone)
-    console.log('\n\n')
-
-    if (!phone) {
-        res.redirect('/?error=PDONCONFIRMED')
-        return
-    }
-
-    let data = await got(`${config().url}/verification/?userId=${phone._id}`).then(data => JSON.parse(data.body))
-
-    console.log('data --> ', data)
-    console.log('songId --> ', data.songId)
-    const song = (await Song.findById(data.songId))
-    console.log('song1 --> ', song)
-
-    call(phone.number, song.url)
-
-    res.render('registration', {
-        title: 'registration',
-        number: phone.number
-    })
-})
-
-
-router.get('/verification', async (req, res) => {
-    console.log('at get verification')
-
-    let userId = req.query.userId
-    console.log('user id --> ', userId)
-
-    let reg = await Registration.find({ userId: userId, error: false })
-
-    if (!reg.length) {
-        let n = Song.count({})
-        let r = Math.floor(Math.random() * n)
-        const song = await Song.find({}).limit(1).skip(r).then(data => data.pop())
-        reg = new Registration({
-            userId: userId,
-            songId: song._id,
-            date: Date.now(),
-            pending: true
-        })
-        reg.save()
-    }
-    else {
-        reg = reg.pop()
-    }
-
-    console.log('res: --> regId ', reg._id, ' songIg ', reg.songId)
-    res.send(JSON.stringify({ songId: reg.songId, regId: reg._id }))
-})
-
-router.post('/audd', (req, res) => {
-    res.send(JSON.stringify({
-        status: 'success',
-        result: {
-            artist: 'Ylvis',
-            title: 'The Fox (What Does The Fox Say?)',
-            album: 'The Fox (What Does The Fox Say?)',
-            release_date: '2013-09-02',
-            label: 'WM Norway',
-            timecode: '00:13'
-        }
-    }))
-})
-
-router.post('/verification', upload.single('file'), async (req, res) => {
-    console.log('at post verification')
-    let number = req.body.number
-    let Path = req.file.path
-    let phone = (await Phone.find({ number: number })).pop()
-
-    console.log('phone --> ', phone)
-    console.log('number --> ', number)
-    console.log('path --> ', Path)
-
-    var fd = new FormData()
-    fd.append('file', fs.createReadStream(Path))
-    fd.append('return', 'timecode')
-    fd.append('api_token', config().audD)
-
-    let reqAud = got('https://api.audd.io/',
-        {
-            method: 'post',
-            body: fd
-        }
-    ).then(raw => {
-        fs.unlink(Path, (err) => { console.log('deleting err --> ', err) })
-        return JSON.parse(raw.body)
-    })
-
-    let reqReg = got(`${config().url}/verification/?userId=${phone._id}`).then(raw => JSON.parse(raw.body))
-
-    let [audio, reg] = await Promise.allSettled([reqAud, reqReg]).then(res => res.map(s => s.value))
-
-    console.log('audio --> ', audio)
-    console.log('reg --> ', reg)
-
-    if (audio.status != 'success' || audio.result == null) {
-        console.log('stop')
-        reg.error = true
-        return
-    }
-
-    song = await Song.findById(reg.songId)
-    reg = await Registration.findById(reg.regId)
-
-    reg.pending = false
-
-    console.log(audio)
-    console.log('\n')
-    console.log(song)
-
-    //console.log('reg --> ', reg)
-
-    console.log('prepeared to verification, no errors')
-    console.log(comparer(audio.result, song))
-
-    res.sendStatus(204)
-})
-
-module.exports = router
