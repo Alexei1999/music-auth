@@ -3,6 +3,10 @@
     <div class="input-field">
         <input type="text" placeholder="+xxxxxxxxxxxx" name="title" required>
     </div>
-
     <button type="submit" class="btn">Register</button>
+    {{#if notify}}
+    <div class="card-panel">
+        <span id='rename' class="red-text text-darken-2">"{{notify}}"</span>
+    </div>
+    {{/if}}
 </form>

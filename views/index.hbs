@@ -1,4 +1,9 @@
 <main>
+    <div id="modal1" class="modal">
+        <div class="modal-content">
+            окно
+        </div>
+    </div>
     <h2>Numbers</h2>
     {{#if buttons.length}}
     <ul>
@@ -33,6 +38,11 @@
     </ul>
     {{else}}
     <p>No numbers!</p>
+    {{/if}}
+    {{#if notify}}
+    <div class="card-panel">
+        <span id='rename' class="red-text text-darken-2">"{{notify}}"</span>
+    </div>
     {{/if}}
     <script src="/reload.js"></script>
 </main>

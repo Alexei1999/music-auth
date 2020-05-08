@@ -24,4 +24,14 @@ config = (url = undefined) => {
     return keys
 }
 
-module.exports = { config, emitter, comparer }
+errors = msg => {
+    library = {
+        'WRNUMBER': 'Номер введен неправильно!',
+        'ALREXIST': 'Такой номер уже существует!',
+        'SRDONAVALIBLE': 'Регистрация провалена!',
+        'SONGDDREJECT': 'Номер не верифицирован!'
+    }
+    return library[msg] || undefined
+}
+
+module.exports = { config, emitter, comparer, errors }

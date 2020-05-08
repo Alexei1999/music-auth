@@ -3,7 +3,7 @@ const got = require('got');
 const FormData = require('form-data')
 const { Router } = require('express')
 const { call } = require('../helpers/caller')
-const { emitter, config, comparer } = require('../helpers/utils')
+const { emitter, config, comparer, errors } = require('../helpers/utils')
 const Phone = require('../models/Phone')
 const Registration = require('../models/Registration')
 const Song = require('../models/Song')
@@ -14,11 +14,29 @@ const upload = multer({ dest: path.resolve(__dirname, '../public/uplods/') })
 const router = Router()
 
 router.get('/', async (req, res) => {
-
-    notify = req.body.error
+    notify = errors(req.query.error)
+    number = req.query.number && `+${req.query.number.slice(1)}`
+    console.log(req.query.number)
+    console.log(req.query.error)
 
     const phones = await Phone.find({}).lean()
     const registrations = {};
+
+    if (number) {
+        let phone = phones.find(phn => phn.number == number)
+        console.log('phone -> ', phones)
+        let regId = phone.regId
+        console.log('regId -> ', regId)
+        if (!regId)
+            regId = await Registration.findOne({ userId: phone._id })
+        console.log('new regId -> ', regId)
+        if (regId)
+            await Registration
+                .findById(regId)
+                .then(reg => { reg.error = true; reg.pending = false; return reg })
+                .then(reg => reg.save())
+                .catch(e => console.log(e))
+    }
 
     (await Registration.find({}))
         .forEach(reg => registrations[reg.userId] = reg)
@@ -37,6 +55,7 @@ router.get('/', async (req, res) => {
                 .findById(phn.registr)
                 .then(reg => { reg.error = false; return reg })
                 .then(reg => reg.save())
+                .catch(e => console.log(e))
         }
         return res
     })
@@ -47,12 +66,15 @@ router.get('/', async (req, res) => {
         notify,
         buttons
     })
+    req.query = null
 })
 
 router.get('/create', (req, res) => {
+    notify = errors(req.query.error)
     res.render('create', {
         title: 'Create number',
-        isCreate: true
+        isCreate: true,
+        notify
     })
 })
 
@@ -77,7 +99,6 @@ router.post('/create', async (req, res) => {
 })
 
 router.post('/complete', async (req, res) => {
-    console.log('complete')
     let phone
     try {
         phone = await Phone.findOne({ number: req.body.number })
@@ -86,8 +107,8 @@ router.post('/complete', async (req, res) => {
         return res.redirect('/?error=WRNUMBER')
     }
 
-    //if (!registr.confirmed)
-    return res.redirect('/registration/?number=' + phone.number)
+    if (!registr || !registr.confirmed)
+        return res.redirect('/registration/?number=' + phone.number)
 
     phone.active = !!req.body.active
     await phone.save()
@@ -109,12 +130,12 @@ router.get('/reload', async (req, res) => {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache',
     })
-
     emitter.on('change', () => {
-        res.write(`event: ${status}\nid: ${id++}\n\n`)
+        res.write(`event: change\ndata: reload\nid: ${id++}\n\n`)
     })
-    emitter.on('error', () => {
-        res.write(`event: ${status}\nid: ${id++}\n\n`)
+    emitter.on('error', msg => {
+        res.write(`event: error\ndata: ${msg}\nid: ${id++}\n\n`)
+        abort()
     })
 })
 
@@ -126,13 +147,16 @@ router.get('/emitter', async (req, res) => {
         'Cache-Control': 'no-cache',
     })
 
-    setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
-    setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
-    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 5000)
+    // setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
+    // setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
+    // setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 10000)
 
-    // emitter.on('status', (status, called) => {
-    //     res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
-    // })
+    emitter.on('status', (status, called) => {
+        res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
+    })
+    emitter.on('error', () => {
+        res.write(`event: error\ndata: error\nid: ${id++}\n\n`)
+    })
 })
 
 router.get('/registration', async (req, res) => {
@@ -142,21 +166,26 @@ router.get('/registration', async (req, res) => {
     } catch (e) {
         return res.redirect('/?error=WRNUMBER')
     }
-
     let data
     try {
         data = await got(`${config().url}/verification/?userId=${phone._id}`)
             .then(data => JSON.parse(data.body))
     } catch (e) {
-        return res.redirect('/?error=SRDONAVALIBLE')
+        console.log(e)
+        return res.redirect(`/?error=SRDONAVALIBLE&number=${phone.number}`)
     }
     const song = await Song.findById(data.songId)
-    let sid = 'sdfsafadsf'//call(phone.number, song.url).then(call => call.sid)
+    try {
+        call(phone.number, song.url)
+    }
+    catch (e) {
+        abort(phone._id, 'WRNUMBER')
+    }
 
     res.render('registration', {
         title: 'registration',
         number: phone.number,
-        sid: sid
+        sid: 'a5sdf79s5d78g'
     })
 })
 
@@ -167,9 +196,7 @@ router.get('/verification', async (req, res) => {
     try {
         await Registration.findByIdAndRemove(phone.registr)
     } catch (e) {
-        emitter.emit('error', {
-            name: 'WRID',
-        })
+        emitter.emit('error', 'WRID')
         return res.sendStatus(204)
     }
     let n = Song.count({})
@@ -213,7 +240,8 @@ let abort = async (id, error) => {
             reg.error = true
             return reg
         })
-    then(reg => reg.save())
+        .then(reg => reg.save())
+        .catch(e => console.log(e))
     emitter.emit('error', error)
 }
 
@@ -228,14 +256,13 @@ router.post('/verification', upload.single('file'), async (req, res) => {
         fd.append('return', 'timecode')
         fd.append('api_token', config().audD)
     } catch (e) {
-        console.log(e)
         await abort(reg._id, 'FSDONAVALIBLE')
         return res.sendStatus(204)
     }
 
     let audio, song
     try {
-        let reqAud = got(`${config().url}/audd`,//'https://api.audd.io/',
+        let reqAud = got('https://api.audd.io/',//`${config().url}/audd`,
             {
                 method: 'post',
                 body: fd
@@ -247,7 +274,6 @@ router.post('/verification', upload.single('file'), async (req, res) => {
         let reqSong = Song.findById(reg.songId);
         [audio, song] = await Promise.all([reqAud, reqSong]);
     } catch (e) {
-        console.log(e)
         await abort(reg._id, 'WRREQUEST')
         return res.sendStatus(204)
     }
@@ -260,7 +286,8 @@ router.post('/verification', upload.single('file'), async (req, res) => {
         reg.error = true
         await reg.save()
         emitter.emit('change')
-        return res.redirect('/?error=REGFAILED')
+        await abort(reg._id, 'REGFAILED')
+        return res.sendStatus(204)
     }
     else audio = audio.result
 
