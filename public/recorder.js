@@ -2,25 +2,22 @@ let url = window.location.origin
 let eventSource = new EventSource(`${url}/emitter`)
 
 setTimeout(() => {
-    window.location.replace(url)
+    window.location.replace(`${url}`)
 }, 60000)
 
+let elem = document.querySelector('.tap-target')
+let button = M.TapTarget.init(elem)
 let getStream
 let mediaRecorder
-let button
 
 eventSource.addEventListener('ringing', source => {
-    console.log('ringing')
     document.querySelector('.small.material-icons').innerText = "mic_none"
-    elem = document.querySelector('.tap-target')
-    button = M.TapTarget.init(elem)
     button.open()
 
     getStream = navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-            button.close()
+        .then(stream => {
             document.querySelector('.tap-target-content').innerHTML = `<h5>RINGING!</h5>\nОтветьте на вызов!`
-            button.open()
+            return stream
         })
         .catch(e => {
             eventSource.close()
@@ -34,7 +31,7 @@ eventSource.addEventListener('ringing', source => {
 })
 
 eventSource.addEventListener('in-progress', source => {
-    console.log('in-progress')
+    button.close()
     getStream.then(stream => {
         const audioChunks = [];
 
@@ -65,7 +62,6 @@ eventSource.addEventListener('in-progress', source => {
                     body: fd
                 }
             )
-            console.log('fetched!!!')
             eventSource.close()
             document.querySelector('.tap-target-content').innerHTML = `<h5>Success!</h5>\n
             Запись отправлена на верификацию`
@@ -115,18 +111,3 @@ eventSource.addEventListener('error', () => {
         window.location.replace(`${url}/?error=SONGDDREJECT`)
     }, 3000)
 })
-
-// close()
-
-// good                     good
-// attention to micro       ringing
-// run micro                in-progress
-// go to home               completed
-
-// busy                     busy
-// attention to micro       ringing
-// registration redirect    busy
-
-// no answer                no answer
-// attention to micro       ringing
-// wtf                      failed

@@ -17,7 +17,6 @@ const createResponse = (song) => {
 const call = async (number, song) => {
     const client = require('twilio')(sid, token);
     const response = createResponse(song)
-
     return client.calls
         .create({
             statusCallbackEvent: ['ringing', 'answered', 'completed'],

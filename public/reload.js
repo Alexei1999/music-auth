@@ -8,7 +8,6 @@ if (rem)
 let instance = M.Modal.init(elem)
 
 eventSource.addEventListener('error', msg => {
-    console.log(msg.data)
     document.querySelector('.modal-content').innerText = getMessage(msg.data)
     instance.open()
 })
@@ -16,7 +15,6 @@ eventSource.addEventListener('error', msg => {
 eventSource.addEventListener('change', () => window.location.reload())
 
 getMessage = msg => {
-    console.log(msg)
     library = {
         'FSDONAVALIBLE': 'Ошибка записи на диск!',
         'WRREQUEST': 'Ошибка запроса на сервер!',
