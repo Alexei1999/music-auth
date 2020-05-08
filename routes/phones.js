@@ -22,19 +22,19 @@ router.get('/', async (req, res) => {
         .forEach(reg => registrations[reg.userId] = reg)
 
     const buttons = phones.map(phn => {
-        let tar = registrations[phn._id]
+        let reg = registrations[phn._id]
         let res = {
             number: phn.number,
             active: phn.active,
-            pending: tar ? tar.pending : false,
-            error: tar ? tar.error : false,
-            confirmed: tar ? tar.confirmed : false
+            pending: reg ? reg.pending : false,
+            error: reg ? reg.error : false,
+            confirmed: reg ? reg.confirmed : false
         }
-        if (tar && tar.error) {
+        if (reg && reg.error) {
             Registration
                 .findById(phn.registr)
-                .setOptions({ error: false })
-                .save()
+                .then(reg => { reg.error = false; return reg })
+                .then(reg => reg.save())
         }
         return res
     })
@@ -59,7 +59,11 @@ router.post('/create', async (req, res) => {
     if (!number.match(/^\+\d*$/))
         return res.redirect('/create/?error=WRNUMBER')
 
-    const phone = new Phone({
+    let phone = await Phone.findOne({ number: number })
+    if (!phone)
+        return res.redirect('/create/?error=ALREXIST')
+
+    phone = new Phone({
         number: number,
         active: true
     })
@@ -73,11 +77,12 @@ router.post('/complete', async (req, res) => {
     let phone
     try {
         phone = await Phone.findOne({ number: req.body.number })
+        registr = await Registration.findById(phone.registr)
     } catch (e) {
         return res.redirect('/?error=WRNUMBER')
     }
 
-    if (!phone.confirmed)
+    if (!registr.confirmed)
         return res.redirect('/registration/?number=' + phone.number)
 
     phone.active = !!req.body.active
@@ -103,7 +108,7 @@ router.get('/emitter', async (req, res) => {
 
     setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 500)
     setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 1000)
-    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 10000)
+    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 5000)
 
     // emitter.on('status', (status, called) => {
     //     res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
@@ -139,10 +144,10 @@ router.get('/registration', async (req, res) => {
 
 router.get('/verification', async (req, res) => {
     console.log('verification')
-    let user = await Phone.findById(req.query.userId)
+    let phone = await Phone.findById(req.query.userId)
 
     try {
-        Registration.findByIdAndRemove(user.registr)
+        await Registration.findByIdAndRemove(phone.registr)
     } catch (e) {
         emitter.emit('error', {
             name: 'WRID',
@@ -154,14 +159,19 @@ router.get('/verification', async (req, res) => {
     const song = await Song.find({}).limit(1).skip(r).then(data => data.pop())
 
     let reg = new Registration({
-        userId: user._id,
+        userId: phone._id,
         songId: song._id,
         date: Date.now(),
         pending: true
     })
     await reg.save()
-    user.registr = reg._id
-    await user.save()
+
+    phone.registr = reg._id
+    await phone.save()
+
+    console.log(phone._id)
+    console.log(phone.registr)
+    console.log(reg._id)
     res.send(JSON.stringify({ songId: song._id }))
 })
 
@@ -183,14 +193,17 @@ let abort = async (id, error) => {
     console.log('aborted --> ', error)
     await Registration
         .findById(id)
-        .setOptions({ pending: false, error: true })
-        .save()
+        .then(reg => {
+            reg.pending = false
+            reg.error = true
+            return reg
+        })
+    then(reg => reg.save())
     emitter.emit('error', error)
 }
 
 router.post('/verification', upload.single('file'), async (req, res) => {
     console.log('verification2')
-    console.log('at verification')
     let phone = await Phone.findOne({ number: req.body.number })
     let reg = await Registration.findById(phone.registr)
     let Path = req.file.path
@@ -202,6 +215,7 @@ router.post('/verification', upload.single('file'), async (req, res) => {
         fd.append('return', 'timecode')
         fd.append('api_token', config().audD)
     } catch (e) {
+        console.log(e)
         await abort(reg._id, 'FSDONAVALIBLE')
         return res.sendStatus(204)
     }
@@ -214,13 +228,13 @@ router.post('/verification', upload.single('file'), async (req, res) => {
                 body: fd
             }
         ).then(raw => {
-            fs.unlink(Path, (err) => console.log(err))
+            fs.unlink(Path, err => { if (err) console.log(err) })
             return JSON.parse(raw.body)
         })
-        let reqSong = got(`${config().url}/verification/?userId=${phone._id}`).then(raw => JSON.parse(raw.body));
-        [audio, sng] = await Promise.all([reqAud, reqSong]);
-        song = Song.findById(sng.songId);
+        let reqSong = Song.findById(reg.songId);
+        [audio, song] = await Promise.all([reqAud, reqSong]);
     } catch (e) {
+        console.log(e)
         await abort(reg._id, 'WRREQUEST')
         return res.sendStatus(204)
     }
@@ -232,7 +246,7 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     if (audio.status != 'success' || audio.result == null) {
         console.log('stop')
         reg.error = true
-        reg.save()
+        await reg.save()
         emitter.emit('change')
         return res.redirect('/?error=REGFAILED')
     }
@@ -254,30 +268,3 @@ router.post('/verification', upload.single('file'), async (req, res) => {
 })
 
 module.exports = router
-
-// router.get('/addsong', async () => {
-//     let fox = new Song({
-//         timecode: '00:04-00:14',
-//         url: 'fox-say.mp3',
-//         title: 'The Fox (What Does The Fox Say?)',
-//         artist: 'Ylvis'
-//     })
-//     fox.save()
-
-//     let igy = new Song({
-//         timecode: '00:59-01:09',
-//         url: 'tony-igi.mp3',
-//         title: 'Astronomia',
-//         artist: 'Tony Igi'
-//     })
-
-//     igy.save()
-//     let p21 = new Song({
-//         timecode: '02:30-02:40',
-//         url: '21-pilots.mp3',
-//         title: 'Heathens',
-//         artist: 'twenty one pilots'
-//     })
-//     p21.save()
-
-// })

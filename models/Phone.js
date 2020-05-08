@@ -9,8 +9,9 @@ const schema = new Schema({
         type: Boolean,
         default: false
     },
-    regist: {
-        type: String
+    registr: {
+        type: String,
+        default: null
     }
 })
 

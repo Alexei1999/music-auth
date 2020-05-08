@@ -23,4 +23,5 @@ config = (url = undefined) => {
         keys.url = url;
     return keys
 }
+
 module.exports = { config, emitter, comparer }
