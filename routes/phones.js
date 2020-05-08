@@ -14,7 +14,9 @@ const upload = multer({ dest: path.resolve(__dirname, '../public/uplods/') })
 const router = Router()
 
 router.get('/', async (req, res) => {
-    console.log('main')
+
+    notify = req.body.error
+
     const phones = await Phone.find({}).lean()
     const registrations = {};
 
@@ -42,6 +44,7 @@ router.get('/', async (req, res) => {
     res.render('index', {
         title: 'Numbers list',
         isIndex: true,
+        notify,
         buttons
     })
 })
@@ -60,7 +63,8 @@ router.post('/create', async (req, res) => {
         return res.redirect('/create/?error=WRNUMBER')
 
     let phone = await Phone.findOne({ number: number })
-    if (!phone)
+
+    if (phone)
         return res.redirect('/create/?error=ALREXIST')
 
     phone = new Phone({
@@ -82,8 +86,8 @@ router.post('/complete', async (req, res) => {
         return res.redirect('/?error=WRNUMBER')
     }
 
-    if (!registr.confirmed)
-        return res.redirect('/registration/?number=' + phone.number)
+    //if (!registr.confirmed)
+    return res.redirect('/registration/?number=' + phone.number)
 
     phone.active = !!req.body.active
     await phone.save()
@@ -96,6 +100,22 @@ router.post('/emitter', async (req, res) => {
 
     emitter.emit('status', status, called)
     res.status(204).send()
+})
+
+router.get('/reload', async (req, res) => {
+    let id = 0
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache',
+    })
+
+    emitter.on('change', () => {
+        res.write(`event: ${status}\nid: ${id++}\n\n`)
+    })
+    emitter.on('error', () => {
+        res.write(`event: ${status}\nid: ${id++}\n\n`)
+    })
 })
 
 router.get('/emitter', async (req, res) => {
@@ -116,7 +136,6 @@ router.get('/emitter', async (req, res) => {
 })
 
 router.get('/registration', async (req, res) => {
-    console.log('registration')
     let phone
     try {
         phone = await Phone.findOne({ number: `+${req.query.number.slice(1)}` })
@@ -131,19 +150,18 @@ router.get('/registration', async (req, res) => {
     } catch (e) {
         return res.redirect('/?error=SRDONAVALIBLE')
     }
-    console.log(data)
     const song = await Song.findById(data.songId)
-    //call(phone.number, song.url)
+    let sid = 'sdfsafadsf'//call(phone.number, song.url).then(call => call.sid)
 
     res.render('registration', {
         title: 'registration',
-        number: phone.number
+        number: phone.number,
+        sid: sid
     })
 })
 
 
 router.get('/verification', async (req, res) => {
-    console.log('verification')
     let phone = await Phone.findById(req.query.userId)
 
     try {
@@ -169,9 +187,6 @@ router.get('/verification', async (req, res) => {
     phone.registr = reg._id
     await phone.save()
 
-    console.log(phone._id)
-    console.log(phone.registr)
-    console.log(reg._id)
     res.send(JSON.stringify({ songId: song._id }))
 })
 
@@ -203,11 +218,9 @@ let abort = async (id, error) => {
 }
 
 router.post('/verification', upload.single('file'), async (req, res) => {
-    console.log('verification2')
     let phone = await Phone.findOne({ number: req.body.number })
     let reg = await Registration.findById(phone.registr)
     let Path = req.file.path
-    console.log('number --> ', phone.number)
 
     var fd = new FormData()
     try {
@@ -244,7 +257,6 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     emitter.emit('change')
 
     if (audio.status != 'success' || audio.result == null) {
-        console.log('stop')
         reg.error = true
         await reg.save()
         emitter.emit('change')
@@ -252,14 +264,8 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     }
     else audio = audio.result
 
-    if (comparer(audio, song)) {
-        console.log('true')
-        reg.confirmed = true
-    }
-    else {
-        console.log('false')
-        reg.error = true
-    }
+    if (comparer(audio, song)) reg.confirmed = true
+    else reg.error = true
 
     await reg.save()
     emitter.emit('change')

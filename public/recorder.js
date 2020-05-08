@@ -1,12 +1,18 @@
-let url = 'http://localhost:3000'//window.location.host
+let url = window.location.origin
 let eventSource = new EventSource(`${url}/emitter`)
 
 let getStream
 let mediaRecorder
+let button
 
 eventSource.addEventListener('ringing', () => {
+    document.querySelector('.small.material-icons').innerText = "mic_none"
+    elem = document.querySelector('.tap-target')
+    button = M.TapTarget.init(elem)
+    button.open()
+
     getStream = navigator.mediaDevices.getUserMedia({ audio: true })
-        .catch(e => console.log('Дайте микрофон бля'))
+        .catch(e => window.location.replace(`${url}/?error=MICACDENIED`))
 })
 
 eventSource.addEventListener('in-progress', source => {
@@ -14,8 +20,9 @@ eventSource.addEventListener('in-progress', source => {
         const audioChunks = [];
 
         mediaRecorder = new MediaRecorder(stream)
-        console.log('start')
+        document.querySelector('.small.material-icons').innerText = "mic"
         mediaRecorder.start()
+        button.close()
         //setTimeout(() => { console.log('start'); mediaRecorder.start(); }, 5000)
 
         mediaRecorder.addEventListener("dataavailable", event => {
@@ -45,20 +52,20 @@ eventSource.addEventListener('in-progress', source => {
 })
 
 eventSource.addEventListener('completed', () => {
-    console.log('stop recording')
-    console.log(mediaRecorder.state)
+    document.querySelector('.small.material-icons').innerText = "mic_off"
     if (mediaRecorder.state == "recording")
         mediaRecorder.stop()
 })
 
 eventSource.addEventListener('busy', () => {
-    console.log('busy')
+    document.querySelector('.small.material-icons').innerText = "error_outline"
+    window.location.replace(`${url}/?error=STBUSY`)
 })
 
 eventSource.addEventListener('failed', () => {
-    console.log('failed')
+    document.querySelector('.small.material-icons').innerText = "error"
+    window.location.replace(`${url}/?error=STFAILED`)
 })
-
 
 // close()
 

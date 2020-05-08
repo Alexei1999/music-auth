@@ -1,9 +1,33 @@
-<h2>Регистрация</h2>
+<h2>Registration</h2>
 
 <div class="card-panel">
-    <span id='rename' class="blue-text text-darken-2">{{number}} -- {{sid}}</span>
+    <p>
+        <span id='rename' class="blue-text text-darken-2">
+            The registration number is
+        </span>
+        <span id='rename' class="red-text text-darken-2">"{{number}}"</span>
+    </p>
+    <p>
+        <span id='rename' class="blue-text text-darken-2">
+            Sid call is
+        </span>
+        <span id='rename' class="red-text text-darken-2">"{{sid}}"</span>
+    </p>
 </div>
 
+<div class="fixed-action-btn direction-top">
+    <a id="menu" class="waves-effect waves-light btn btn-floating">
+        <i class="small material-icons #ef5350 red lighten-1">phone</i>
+    </a>
+</div>
+
+<!-- Tap Target Structure -->
+<div class="tap-target" data-target="menu">
+    <div class="tap-target-content">
+        <h5>Microphone access</h5>
+        <p>Please enable microphone access for registration</p>
+    </div>
+</div>
 
 
 <script src="/recorder.js"></script>
