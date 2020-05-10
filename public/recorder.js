@@ -21,7 +21,7 @@ eventSource.addEventListener('ringing', source => {
         })
         .catch(e => {
             eventSource.close()
-            document.querySelector('.tap-target-content').innerHTML = `<h5>DENIED!</h5>\nОткройте доступ к микрофону!`
+            document.querySelector('.tap-target-content').innerHTML = `<h5>ACCESS!</h5>\nОткройте доступ к микрофону!`
             button.open()
             setTimeout(() => {
                 button.close()
@@ -34,12 +34,18 @@ eventSource.addEventListener('in-progress', source => {
     button.close()
     getStream.then(stream => {
         const audioChunks = [];
+        let i = 0;
 
         mediaRecorder = new MediaRecorder(stream)
         setTimeout(() => {
             document.querySelector('.small.material-icons').innerText = "mic"
-            mediaRecorder.start();
+            mediaRecorder.start()
             button.close()
+            let progress = () => setTimeout(() => {
+                document.querySelector('.determinate').setAttribute('style', `width: ${i++}%`)
+                if (i <= 100) progress()
+            }, 100)
+            progress()
         }, 5000)
 
         mediaRecorder.addEventListener("dataavailable", event => {
