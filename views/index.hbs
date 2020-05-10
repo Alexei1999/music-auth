@@ -20,9 +20,11 @@
                     {{/if}}
 
                     <input type="hidden" value="{{number}}" name="number">
+                    <button class="btn btn-small #a1887f brown lighten-2" formaction=" /delete" type="submit"
+                        style="margin-left: auto">Delete</button>
 
                     {{#if confirmed}}
-                    <button class="btn btn-small" type="submit">Set</button>
+                    <button class="btn btn-small" type="submit" style="width: 90px;">Set</button>
                     {{else if pending}}
                     <button class="btn btn-small disabled" type="submit">Pending</button>
                     {{else if error}}
@@ -30,9 +32,9 @@
                     {{else}}
                     <button class="btn btn-small" type="submit">Register</button>
                     {{/if}}
-
                 </label>
             </form>
+
         </li>
         {{/each}}
     </ul>

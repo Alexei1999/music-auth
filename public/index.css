@@ -16,6 +16,10 @@
     padding: 1rem;
 }
 
+.btn-small {
+    width: 90px;
+}
+
 .phone i {
     z-index: 2;
 }
