@@ -119,3 +119,6 @@ config.json
 
 #upload
 public/uplods
+
+#addsongtemplate.js
+addsongtemplate.js
