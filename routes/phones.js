@@ -64,6 +64,16 @@ router.get('/', async (req, res) => {
     req.query = null
 })
 
+router.post('/delete', async(req, res) => {
+    const number = req.body.number
+    let phone = await Phone.findOne({number: number})
+    if (!phone)
+        return res.redirect('/?error=WRNUMBER')
+    await Phone.findByIdAndDelete(phone._id)
+    await Registration.findOneAndDelete({userId : phone._id})
+    res.redirect('/')
+})
+
 router.get('/create', (req, res) => {
     notify = errors(req.query.error)
     res.render('create', {
@@ -141,12 +151,16 @@ router.get('/emitter', async (req, res) => {
         'Cache-Control': 'no-cache',
     })
 
-    emitter.on('status', (status, called) => {
-        res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
-    })
-    emitter.on('error', () => {
-        res.write(`event: error\ndata: error\nid: ${id++}\n\n`)
-    })
+    setTimeout(() => res.write(`event: ringing\ndata: +number\nid: ${id++}\n\n`), 1000)
+    setTimeout(() => res.write(`event: in-progress\ndata: +number\nid: ${id++}\n\n`), 10000)
+    setTimeout(() => res.write(`event: completed\ndata: +number\nid: ${id++}\n\n`), 20000)
+
+    // emitter.on('status', (status, called) => {
+    //     res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
+    // })
+    // emitter.on('error', () => {
+    //     res.write(`event: error\ndata: error\nid: ${id++}\n\n`)
+    // })
 })
 
 router.get('/registration', async (req, res) => {
@@ -164,9 +178,9 @@ router.get('/registration', async (req, res) => {
         return res.redirect(`/?error=SRDONAVALIBLE&number=${phone.number}`)
     }
     const song = await Song.findById(data.songId)
-    call(phone.number, song.url).catch(e => {
-        Registration.findOne({ userId: phone._id }).then(reg => abort(reg._id, 'WRNUMBER'))
-    })
+    // call(phone.number, song.url).catch(e => {
+    //     Registration.findOne({ userId: phone._id }).then(reg => abort(reg._id, 'WRNUMBER'))
+    // })
 
 
     res.render('registration', {

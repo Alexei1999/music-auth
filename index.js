@@ -32,7 +32,7 @@ async function start() {
             useFindAndModify: false,
             useUnifiedTopology: true
         })
-        const url = await ngrok.connect(PORT)
+        const url = 'http://d72a64b5.ngrok.io'//await ngrok.connect(PORT)
         app.listen(PORT, () => {
             console.log(`server starts listening on ${HOST}:${PORT}`)
         })
