@@ -116,3 +116,6 @@ dist
 
 #config.json
 config.json
+
+#upload
+public/uplods

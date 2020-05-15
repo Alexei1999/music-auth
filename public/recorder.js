@@ -20,12 +20,13 @@ eventSource.addEventListener('ringing', source => {
             return stream
         })
         .catch(e => {
+            console.log(e)
             eventSource.close()
-            document.querySelector('.tap-target-content').innerHTML = `<h5>ACCESS!</h5>\nОткройте доступ к микрофону!`
+            document.querySelector('.tap-target-content').innerHTML = `<h5>DENIED!</h5>\nОткройте доступ к микрофону!`
             button.open()
             setTimeout(() => {
                 button.close()
-                window.location.replace(`${url}/?error=MICACDENIED&number=${source.data}`)
+                window.location.replace(`${url}/?error=MICACDENIED`)
             }, 3000)
         })
 })
@@ -86,31 +87,32 @@ eventSource.addEventListener('completed', () => {
         mediaRecorder.stop()
 })
 
-eventSource.addEventListener('busy', source => {
+eventSource.addEventListener('busy', () => {
     eventSource.close()
     document.querySelector('.small.material-icons').innerText = "error_outline"
     document.querySelector('.tap-target-content').innerHTML = `<h5>BUSY!</h5>\nВы отклонили вызов!`
     button.open()
     setTimeout(() => {
         button.close()
-        window.location.replace(`${url}/?error=STBUSY&number=${source.data}`)
+        window.location.replace(`${url}/?error=STBUSY`)
     }, 3000)
 })
 
-eventSource.addEventListener('failed', source => {
+eventSource.addEventListener('failed', () => {
     eventSource.close()
     document.querySelector('.small.material-icons').innerText = "error"
-    document.querySelector('.tap-target-content').innerHTML = `<h5>FAILED!</h5>\nВы отклонили вызов!`
+    document.querySelector('.tap-target-content').innerHTML = `<h5>FAILED!</h5>\nВы не приняли вызов!`
     button.open()
     setTimeout(() => {
         button.close()
-        window.location.replace(`${url}/?error=STFAILED&number=${source.data}`)
+        window.location.replace(`${url}/?error=STFAILED`)
     }, 3000)
 })
 
 eventSource.addEventListener('error', () => {
     eventSource.close()
-    document.querySelector('.tap-target-content').innerHTML = '<h5>Error!</h5>\nЧто то пошло не так...'
+    document.querySelector('.tap-target-content').innerHTML = `<h5>Success!</h5>\n
+            Запись отправлена на верификацию`
     button.open()
     setTimeout(() => {
         button.close()

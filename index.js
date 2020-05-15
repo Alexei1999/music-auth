@@ -1,13 +1,13 @@
 const express = require('express')
 const mongoose = require('mongoose')
-const path = require('path')
 const exphbs = require('express-handlebars')
+const path = require('path')
 const phoneRoutes = require('./routes/phones')
 const ngrok = require('ngrok')
 const { config } = require('./helpers/utils')
 const os = require('os')
 
-const HOST = os.networkInterfaces()['Беспроводная сеть'][1].address;
+const HOST = os.networkInterfaces()['Беспроводная сеть'][1].address || 'localhost'
 const PORT = process.env.PORT || 3000
 
 const app = express()
@@ -42,6 +42,5 @@ async function start() {
         console.log(e)
     }
 }
-
 
 start()

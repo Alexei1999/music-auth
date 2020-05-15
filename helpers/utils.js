@@ -1,4 +1,3 @@
-const emitter = new (require('events'))()
 const Path = require('path')
 const fs = require('fs')
 let keys = undefined
@@ -34,4 +33,4 @@ errors = msg => {
     return library[msg] || undefined
 }
 
-module.exports = { config, emitter, comparer, errors }
+module.exports = { config, comparer, errors }

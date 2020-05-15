@@ -10,6 +10,7 @@ let instance = M.Modal.init(elem)
 eventSource.addEventListener('error', msg => {
     document.querySelector('.modal-content').innerText = getMessage(msg.data)
     instance.open()
+    setTimeout(() => {instance.close(); window.location.reload()}, 3000)
 })
 
 eventSource.addEventListener('change', () => window.location.reload())
@@ -19,7 +20,10 @@ getMessage = msg => {
         'FSDONAVALIBLE': 'Ошибка записи на диск!',
         'WRREQUEST': 'Ошибка запроса на сервер!',
         'REGFAILED': 'Регистрация провалена!',
-        'WRID': 'Ошибка записи в базе данных'
+        'WRID': 'Ошибка записи в базе данных',
+        'WRNUMBER' : 'Неправильный номер',
+        'RGTIMEDOUT' : 'Время регистрации вышло!',
+        'REGDECLINED' : 'Регистрация откланена! '
     }
     return library[msg] || 'Ошибка сети!'
 }
