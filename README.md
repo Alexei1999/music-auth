@@ -18,4 +18,4 @@ $ npm start
 
 ### Usage
 
-After server running go to localhost:3000 (another ip) 
+After server running go to localhost:3000 (may be another ip) 
