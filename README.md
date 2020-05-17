@@ -2,7 +2,7 @@ Music authentification demo
  
 ## Getting Started
 
-Clone in your local repository
+Clone in your local repository and fill `config.json` with your tokens.
 
 ### Run app
 
