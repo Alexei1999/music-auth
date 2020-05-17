@@ -1,4 +1,5 @@
-Music authentification demo
+Music authentification demo.
+This web application calling on your phone number, playing the melody and recording it by microphone. Then recorded audio send to the server for recognition.
  
 ## Getting Started
 
