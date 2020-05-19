@@ -3,7 +3,7 @@ This web application calling on your phone number, playing the melody and record
  
 ## Getting Started
 
-Clone in your local repository and fill `config.json` with your tokens.
+Clone in your local repository and fill `config.json` with your tokens. Dont forget to set callback public url in your Twilio account number configuration.
 
 ### Run app
 

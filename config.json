@@ -1,7 +1,0 @@
-{
-    "mongodb": "<your mongodb link>",
-    "sid": "<your Twilio account sid>",
-    "token": "<your Twilio token>",
-    "from": "<your Twilio caller number>",
-    "audD": "<your audD token>"
-}
