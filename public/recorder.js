@@ -47,7 +47,7 @@ eventSource.addEventListener('in-progress', source => {
                 if (i <= 100) progress()
             }, 100)
             progress()
-        }, 5000)
+        }, 5500)
 
         mediaRecorder.addEventListener("dataavailable", event => {
             audioChunks.push(event.data)

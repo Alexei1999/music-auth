@@ -18,14 +18,14 @@ let client = new EventEmitter()
 let emitter = new EventEmitter()
 let calls = {}
 
-let controller = async() => {
+let controller = async () => {
     let regs = await Registration.find({})
 
     regs.forEach(reg => {
-        if(reg.pending == true && Date.now() - reg.date > 60000) {
+        if (reg.pending == true && Date.now() - reg.date > 60000) {
             Phone.findById(reg.userId).then(phone => {
                 abort(reg._id, phone.number, 'RGTIMEDOUT')
-            })
+            }).catch(e => { throw new Error('database access error to phone user id' + reg.userId) })
         }
     })
     setTimeout(controller, 10000)
@@ -36,7 +36,7 @@ const emit = (...theArgs) => {
     try {
         emitter.emit(...theArgs)
         client.emit(theArgs[0], ...theArgs.slice(2))
-    } catch(e){
+    } catch (e) {
         setTimeout(() => emit(...theArgs), 1000)
     }
 }
@@ -63,16 +63,16 @@ const getButtons = (phones, registrations) => {
 }
 
 emitter.on('error', async number => {
-    let phone = await Phone.findOne({ number: number })
-    let regId = phone.regId || await Registration.findOne({ userId: phone._id })
+    let phone = await Phone.findOne({ number: number }).catch(e => { throw new Error('database access error to phone ' + number) })
+    let regId = phone.regId || await Registration.findOne({ userId: phone._id }).catch(e => { throw new Error('database access error to registration ' + phone._id) })
     if (regId)
-    try{
-        await Registration.findById(regId)
-            .then(reg => {reg.error=true; reg.pending = false; return reg})
-            .then(reg => reg.save())
-    } catch(e) {
-        console.log(e)
-    }
+        try {
+            await Registration.findById(regId)
+                .then(reg => { reg.error = true; reg.pending = false; return reg })
+                .then(reg => reg.save())
+        } catch (e) {
+            console.log(e)
+        }
 })
 
 router.get('/', async (req, res) => {
@@ -94,15 +94,15 @@ router.get('/', async (req, res) => {
     })
 })
 
-router.post('/delete', async(req, res) => {
+router.post('/delete', async (req, res) => {
     const number = req.body.number
-    let phone = await Phone.findOne({number: number})
+    let phone = await Phone.findOne({ number: number }).catch(e => { throw new Error('database access error to phone ' + number) })
 
     if (!phone)
         return res.redirect('/?error=WRNUMBER')
-    
+
     await Phone.findByIdAndDelete(phone._id)
-    await Registration.findOneAndDelete({userId : phone._id})
+    await Registration.findOneAndDelete({ userId: phone._id })
 
     res.redirect('/')
 })
@@ -122,7 +122,7 @@ router.post('/create', async (req, res) => {
     if (!number.match(/^\+\d*$/))
         return res.redirect('/create/?error=WRNUMBER')
 
-    let phone = await Phone.findOne({ number: number })
+    let phone = await Phone.findOne({ number: number }).catch(e => { throw new Error('database access error to phone ' + number) })
 
     if (phone)
         return res.redirect('/create/?error=ALREXIST')
@@ -139,8 +139,8 @@ router.post('/create', async (req, res) => {
 router.post('/complete', async (req, res) => {
     let phone
     try {
-        phone = await Phone.findOne({ number: req.body.number })
-        registr = await Registration.findById(phone.registr)
+        phone = await Phone.findOne({ number: req.body.number }).catch(e => { throw new Error('database access error to phone ' + number) })
+        registr = await Registration.findById(phone.registr).catch(e => { throw new Error('database access error to registration ' + phone.registr) })
     } catch (e) {
         return res.redirect('/?error=WRNUMBER')
     }
@@ -170,7 +170,7 @@ router.post('/emitter', async (req, res) => {
 router.get('/reload', async (req, res) => {
     let id = 0
     client = new EventEmitter()
-    
+
     res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache',
@@ -189,10 +189,6 @@ router.get('/emitter', async (req, res) => {
         'Cache-Control': 'no-cache',
     })
 
-    setTimeout(() => {emitter.emit('status', 'status', 'ringing', '+'); res.write(`event: ringing\ndata: +\nid: ${id++}\n\n`)}, 1000)
-    setTimeout(() => {emitter.emit('status', 'status', 'in-progress', '+'); res.write(`event: in-progress\ndata: +\nid: ${id++}\n\n`)}, 3000)
-    setTimeout(() => {emitter.emit('status', 'status', 'completed', '+'); res.write(`event: completed\ndata: +\nid: ${id++}\n\n`)}, 19000)
-
     client.on('status', (status, called) => {
         res.write(`event: ${status}\ndata: ${called}\nid: ${id++}\n\n`)
         if (status == 'completed') res.sendStatus(204)
@@ -206,7 +202,7 @@ router.get('/emitter', async (req, res) => {
 router.get('/registration', async (req, res) => {
     let phone
     try {
-        phone = await Phone.findOne({ number: `+${req.query.number.slice(1)}` })
+        phone = await Phone.findOne({ number: `+${req.query.number.slice(1)}` }).catch(e => { throw new Error('database access error to phone ' + number) })
     } catch (e) {
         return res.redirect('/?error=WRNUMBER')
     }
@@ -220,9 +216,9 @@ router.get('/registration', async (req, res) => {
     }
     delete calls[phone.number]
     const song = await Song.findById(data.songId)
-    // call(phone.number, song.url).catch(e => {
-    //     Registration.findOne({ userId: phone._id }).then(reg => abort(reg._id, 'WRNUMBER'))
-    // })
+    call(phone.number, song.url).catch(e => {
+        Registration.findOne({ userId: phone._id }).then(reg => abort(reg._id, 'WRNUMBER'))
+    })
 
 
     res.render('registration', {
@@ -239,10 +235,10 @@ router.get('/registration', async (req, res) => {
 // })
 
 router.get('/verification', async (req, res) => {
-    let phone = await Phone.findById(req.query.userId)
+    let phone = await Phone.findById(req.query.userId).catch(e => { throw new Error('database access error to phone ' + req.query.userId) })
 
     try {
-        await Registration.findByIdAndRemove(phone.registr)
+        await Registration.findByIdAndRemove(phone.registr).catch(e => { throw new Error('database access error to registration ' + phone.registr) })
     } catch (e) {
         emit('error', phone.number, 'WRID')
         return res.sendStatus(204)
@@ -287,8 +283,9 @@ async function abort(id, number, error) {
 // })
 
 router.post('/verification', upload.single('file'), async (req, res) => {
-    let phone = await Phone.findOne({ number: req.body.number })
-    let reg = await Registration.findById(phone.registr)
+    console.log('verification')
+    let phone = await Phone.findOne({ number: req.body.number }).catch(e => { throw new Error('database access error to phone ' + req.body.number) })
+    let reg = await Registration.findById(phone.registr).catch(e => { throw new Error('database access error to registration ' + phone.registr) })
     let Path = req.file.path
 
     if (reg.pending == false) return res.sendStatus(204)
@@ -320,6 +317,13 @@ router.post('/verification', upload.single('file'), async (req, res) => {
         await abort(reg._id, phone.number, 'WRREQUEST')
         return res.sendStatus(204)
     }
+    console.group('target song')
+    console.log(song)
+    console.groupEnd()
+
+    console.group('recognized audio')
+    console.log(audio)
+    console.groupEnd()
 
     reg.pending = false
     await reg.save()
@@ -334,6 +338,8 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     }
     else audio = audio.result
 
+    console.log('compare result: ', comparer(audio, song))
+
     if (comparer(audio, song)) reg.confirmed = true
     else reg.error = true
 
@@ -343,38 +349,41 @@ router.post('/verification', upload.single('file'), async (req, res) => {
     res.sendStatus(204)
 })
 
-emitter.on('status', async(_, status, called) => {
-    if (status == 'ringing'){
-        if (!calls[called]) calls[called] = []    
+emitter.on('status', async (_, status, called) => {
+    if (status == 'ringing') {
+        if (!calls[called]) calls[called] = []
     }
-    let user = await Phone.findOne({ number: called })
-    let reg = await Registration.findOne({ userId: user._id })
-    try{
-        calls[called].push(status)
-    } catch(e) {
-        abort(reg._id, called, 'REGABORTED')
-        return
+    let user = await Phone.findOne({ number: called }).catch(e => { throw new Error('database access error to phone ' + called) })
+    let reg = await Registration.findOne({ userId: user._id }).catch(e => { throw new Error('database access error to registration ' + user._id) })
+
+    if (status != 'completed') {
+        try {
+            calls[called].push(status)
+        } catch (e) {
+            abort(reg._id, called, 'REGABORTED')
+            return
+        }
     }
 
-    if (status == 'in-progress'){
+    if (status == 'in-progress') {
         setTimeout(() => {
             let length = calls[called] && calls[called].length
-            if (length && calls[called][length-1] != 'completed'){
+            if (length && calls[called][length - 1] == 'in-progress')
                 abort(reg._id, called, 'REGABORTED')
-            }
-        }, 20000)
+        }, 60000)
     }
 
-    if (status == 'completed'){
-        let events = ['ringing', 'in-progress', 'completed']
+    if (status == 'completed') {
+        if (!calls[called]) return
+        let events = ['ringing', 'in-progress']
 
-        if (JSON.stringify(calls[called]) != JSON.stringify(events)){
+        if (JSON.stringify(calls[called]) != JSON.stringify(events)) {
             abort(reg._id, called, 'REGABORTED')
         }
         delete calls[called]
     }
-    
-    if (status == 'busy' || status == 'failed'){
+
+    if (status == 'busy' || status == 'failed') {
         abort(reg._id, called, 'REGDECLINED')
         delete calls[called]
     }
