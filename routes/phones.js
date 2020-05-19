@@ -153,12 +153,6 @@ router.post('/complete', async (req, res) => {
     res.redirect('/')
 })
 
-// router.post('/emitter', async (req, res, next) => {
-//     if (req.headers.origin != 'http://twilio.com/')
-//         return res.sendStatus(404)
-//     next()
-// })
-
 router.post('/emitter', async (req, res) => {
     let status = req.body.CallStatus
     let called = req.body.Called
@@ -228,22 +222,17 @@ router.get('/registration', async (req, res) => {
     })
 })
 
-// router.get('/verification', (req, res, next) => {
-//     if (!config().url.includes(req.headers.host))
-//         return res.sendStatus(404)
-//     next()
-// })
-
 router.get('/verification', async (req, res) => {
     let phone = await Phone.findById(req.query.userId).catch(e => { throw new Error('database access error to phone ' + req.query.userId) })
 
     try {
         await Registration.findByIdAndRemove(phone.registr).catch(e => { throw new Error('database access error to registration ' + phone.registr) })
     } catch (e) {
-        emit('error', phone.number, 'WRID')
+        if (phone)
+            emit('error', phone.number, 'WRID')
         return res.sendStatus(204)
     }
-    let n = Song.count({})
+    let n = await Song.count({})
     let r = Math.floor(Math.random() * n)
     const song = await Song.find({}).limit(1).skip(r).then(data => data.pop())
 
@@ -262,25 +251,21 @@ router.get('/verification', async (req, res) => {
 })
 
 async function abort(id, number, error) {
-    await Registration
-        .findById(id)
-        .then(reg => {
-            reg.pending = false
-            reg.error = true
-            return reg
-        })
-        .then(reg => reg.save())
-        .catch(e => console.log('no registration error'))
+    try {
+        await Registration
+            .findById(id)
+            .then(reg => {
+                reg.pending = false
+                reg.error = true
+                return reg
+            })
+            .then(reg => reg.save())
+    } catch (e) {
+        console.log('no registration error')
+        return;
+    }
     emit('error', number, error)
 }
-
-// router.post('/test', (req, res) => {
-//     res.send({
-//         status: 'success',
-//         result: {title:'The Fox (What Does The Fox Say?)',
-//             artist:'Ylvis',
-//             timecode:'0:10'}})
-// })
 
 router.post('/verification', upload.single('file'), async (req, res) => {
     console.log('verification')
