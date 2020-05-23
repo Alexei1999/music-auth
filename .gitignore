@@ -126,3 +126,9 @@ addsongtemplate.js
 #other
 docall.js
 doserver.js
+
+#yarn.lock
+yarn.lock
+
+#package-lock.json
+package-lock.json
